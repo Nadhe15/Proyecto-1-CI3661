@@ -1,5 +1,5 @@
--- | Núcleo puro del motor de aventuras y lógica de la Variante 1: Peso
--- (Parte 2 - Nadheska García). No realiza ninguna operación de E/S.
+-- | Núcleo del motor de aventuras y lógica de la Variante 1: Peso
+
 module Motor.Nucleo
   ( estadoInicial
   , ejecutar
@@ -32,7 +32,7 @@ cumpleMeta st = case mundoMeta (estMundo st) of
   LlevarA objMeta salaMeta ->
     estSalaActual st == salaMeta && objMeta `elem` estInventario st
 
--- | Genera la descripción legible de la sala actual (descripción, objetos y salidas).
+-- | Genera la descripción de la sala actual.
 describirSalaActual :: Estado -> [String]
 describirSalaActual st =
   let m = estMundo st
@@ -59,8 +59,8 @@ describirSalaActual st =
       mostrarDireccion dir ++
         maybe "" (\req -> " (requiere " ++ unIdObjeto req ++ ")") (salRequisito sal)
 
--- | Ejecuta un 'Comando' de manera pura, devolviendo los mensajes para el
--- jugador y el nuevo 'Estado'.
+-- | Ejecuta un comando de manera pura, devolviendo los mensajes para el
+-- jugador y el nuevo estado.
 ejecutar :: Comando -> Estado -> ([String], Estado)
 ejecutar cmd st = case cmd of
   Ir dir       -> ejecutarIr dir st
