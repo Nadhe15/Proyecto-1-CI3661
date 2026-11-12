@@ -1,4 +1,4 @@
--- | Intérprete puro de comandos escritos por el jugador (Parte 2 - Nadheska García).
+-- | Intérprete puro de comandos escritos por el jugador
 module Motor.Comandos
   ( leerComando
   ) where
@@ -7,11 +7,11 @@ import Data.Char (isSpace, toLower)
 import Data.List (dropWhileEnd, intercalate)
 import Motor.Tipos (Comando (..), Direccion (..), IdObjeto (..))
 
--- | Elimina espacios en blanco al inicio y al final de una cadena.
+-- | Elimina espacios en blanco al inicio y al final de una cadena
 recortar :: String -> String
 recortar = dropWhileEnd isSpace . dropWhile isSpace
 
--- | Reconoce una dirección completa o su abreviatura de una letra.
+-- | Reconoce una dirección completa o su abreviatura de una letra
 leerDireccion :: String -> Maybe Direccion
 leerDireccion s = case map toLower (recortar s) of
   "norte"  -> Just Norte
@@ -26,9 +26,7 @@ leerDireccion s = case map toLower (recortar s) of
   "abajo"  -> Just Abajo
   _        -> Nothing
 
--- | Normaliza el nombre de un objeto escrito por el jugador.
--- Acepta el identificador exacto (p. ej. @memoria_usb@), mayúsculas o
--- palabras separadas con un artículo opcional (p. ej. @la memoria usb@).
+-- | Normaliza el nombre de un objeto escrito por el jugador
 leerObjeto :: String -> Maybe IdObjeto
 leerObjeto s =
   case quitarArticulo (words (map toLower s)) of
@@ -39,8 +37,7 @@ leerObjeto s =
     quitarArticulo (w : ws) | w `elem` articulos = ws
     quitarArticulo ws = ws
 
--- | Analiza una línea de entrada del jugador y la convierte en un 'Comando'.
--- Es una función totalmente pura y libre de funciones parciales.
+-- | Analiza una línea de entrada del jugador y la convierte en un comando
 leerComando :: String -> Maybe Comando
 leerComando entrada =
   case recortar entrada of
