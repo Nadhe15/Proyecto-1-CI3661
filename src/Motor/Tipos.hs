@@ -1,7 +1,4 @@
--- | Tipos base del dominio del motor de aventuras (Paso 0 + Parte 2).
--- Incluye los tipos del mundo acordados entre ambos integrantes y los
--- tipos de estado, comandos y guardado correspondientes a la Parte 2
--- (Nadheska García, 19-10054) con soporte para la Variante 1 (Peso).
+-- | Tipos base del dominio del motor de aventuras 
 module Motor.Tipos
   ( IdSala (..)
   , IdObjeto (..)
@@ -24,11 +21,11 @@ module Motor.Tipos
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 
--- | Identificador tipado de una sala (espacio de nombres separado).
+-- | Identificador tipado de una sala.
 newtype IdSala = IdSala { unIdSala :: String }
   deriving (Show, Read, Eq, Ord)
 
--- | Identificador tipado de un objeto (espacio de nombres separado).
+-- | Identificador de un objeto.
 newtype IdObjeto = IdObjeto { unIdObjeto :: String }
   deriving (Show, Read, Eq, Ord)
 
@@ -42,7 +39,7 @@ data Direccion
   | Abajo
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
--- | Representación textual en minúsculas de una dirección.
+-- | Representación textual de una dirección.
 mostrarDireccion :: Direccion -> String
 mostrarDireccion Norte  = "norte"
 mostrarDireccion Sur    = "sur"
@@ -51,14 +48,14 @@ mostrarDireccion Oeste  = "oeste"
 mostrarDireccion Arriba = "arriba"
 mostrarDireccion Abajo  = "abajo"
 
--- | Un objeto del mundo, con identificador, descripción y peso (>= 1).
+-- | Un objeto del mundo.
 data Objeto = Objeto
   { objId   :: IdObjeto
   , objDesc :: String
   , objPeso :: Int
   } deriving (Show, Read, Eq)
 
--- | Una salida desde una sala hacia otra, opcionalmente bloqueada por un objeto.
+-- | Una salida desde una sala hacia otra.
 data Salida = Salida
   { salDestino   :: IdSala
   , salRequisito :: Maybe IdObjeto
@@ -80,7 +77,7 @@ data Meta
 
 -- | Definición completa e inmutable de un mundo válido.
 -- 'mundoCapacidad' es 'Nothing' si el archivo no declara @CAPACIDAD:@
--- (compatibilidad con mundos sin peso explícito) o @Just n@ con @n >= 1@.
+
 data Mundo = Mundo
   { mundoTitulo    :: String
   , mundoInicio    :: IdSala
@@ -90,13 +87,13 @@ data Mundo = Mundo
   , mundoObjetos   :: Map IdObjeto Objeto
   } deriving (Show, Read, Eq)
 
--- | Errores de análisis sintáctico o validación semántica de un mundo.
+-- | Errores de un mundo
 data ErrorMundo
   = ErrorSintaxis Int String
   | ErrorValidacion String
   deriving (Show, Read, Eq)
 
--- | Formatea un 'ErrorMundo' garantizando el prefijo obligatorio @Error: @.
+-- | Formatea un ErrorMundo.
 formatearError :: ErrorMundo -> String
 formatearError (ErrorSintaxis linea msg) =
   "Error: línea " ++ show linea ++ ": " ++ msg
@@ -118,8 +115,6 @@ data Comando
   deriving (Show, Read, Eq)
 
 -- | Estado completo de una partida en curso.
--- Mantiene una referencia al 'Mundo' inmutable y separa lo que cambia
--- durante el juego: sala actual, inventario y objetos presentes en cada sala.
 data Estado = Estado
   { estMundo      :: Mundo
   , estSalaActual :: IdSala
@@ -129,9 +124,7 @@ data Estado = Estado
   , estSalir      :: Bool
   } deriving (Show, Read, Eq)
 
--- | Instantánea serializable para guardar y cargar partidas.
--- Guarda únicamente lo que cambia junto al título del mundo para verificar
--- compatibilidad al cargar.
+-- | Instantánea  para guardar y cargar partidas.
 data PartidaGuardada = PartidaGuardada
   { pgTitulo     :: String
   , pgSalaActual :: IdSala
@@ -139,7 +132,7 @@ data PartidaGuardada = PartidaGuardada
   , pgSalasObjs  :: Map IdSala [IdObjeto]
   } deriving (Show, Read, Eq)
 
--- | Obtiene el peso de un objeto registrado en el mundo (1 por defecto si no figura).
+-- | Obtiene el peso de un objeto registrado en el mundo.
 pesoObjeto :: Mundo -> IdObjeto -> Int
 pesoObjeto mundo oid =
   maybe 1 objPeso (Map.lookup oid (mundoObjetos mundo))
