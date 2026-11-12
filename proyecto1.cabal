@@ -1,0 +1,49 @@
+cabal-version:      2.4
+name:               proyecto1
+version:            0.1.0.0
+synopsis:           Motor de aventuras de texto en Haskell (CI-3661)
+license:            NONE
+author:             Samuel Sanabria (20-10591), Nadheska Garcia (19-10054)
+maintainer:         19-10054@usb.ve
+build-type:         Simple
+
+library
+  exposed-modules:
+      Motor.Tipos
+      Motor.Mundo
+      Motor.Comandos
+      Motor.Nucleo
+      Motor.Persistencia
+  hs-source-dirs:   src
+  build-depends:
+      base >=4.14 && <5
+    , containers
+    , directory
+    , filepath
+  ghc-options:      -Wall
+  default-language: Haskell2010
+
+executable aventura
+  main-is:          Main.hs
+  hs-source-dirs:   app
+  build-depends:
+      base >=4.14 && <5
+    , containers
+    , directory
+    , filepath
+    , proyecto1
+  ghc-options:      -Wall
+  default-language: Haskell2010
+
+test-suite proyecto1-test
+  type:             exitcode-stdio-1.0
+  main-is:          Main.hs
+  hs-source-dirs:   test
+  build-depends:
+      base >=4.14 && <5
+    , containers
+    , directory
+    , filepath
+    , proyecto1
+  ghc-options:      -Wall
+  default-language: Haskell2010
