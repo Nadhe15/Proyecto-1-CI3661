@@ -1,4 +1,5 @@
--- | Núcleo puro del motor de aventuras (Parte 2 - Nadheska García).
+-- | Núcleo puro del motor de aventuras y lógica de la Variante 1: Peso
+-- (Parte 2 - Nadheska García). No realiza ninguna operación de E/S.
 module Motor.Nucleo
   ( estadoInicial
   , ejecutar
@@ -58,7 +59,8 @@ describirSalaActual st =
       mostrarDireccion dir ++
         maybe "" (\req -> " (requiere " ++ unIdObjeto req ++ ")") (salRequisito sal)
 
--- | Ejecuta un 'Comando' de manera pura.
+-- | Ejecuta un 'Comando' de manera pura, devolviendo los mensajes para el
+-- jugador y el nuevo 'Estado'.
 ejecutar :: Comando -> Estado -> ([String], Estado)
 ejecutar cmd st = case cmd of
   Ir dir       -> ejecutarIr dir st
@@ -116,7 +118,8 @@ ejecutarTomar oid st =
                   ++ show pNuevo ++ "/" ++ show cap ++ ")."], st)
               capMaybe ->
                 let invNuevo = estInventario st ++ [oid]
-                    stTom = st { estInventario = invNuevo }
+                    salasNuevas = Map.insert sid (delete oid objsSala) (estSalasObjs st)
+                    stTom = st { estInventario = invNuevo, estSalasObjs = salasNuevas }
                     gano = cumpleMeta stTom
                     stFinal = stTom { estTerminado = gano }
                     msgCarga = formatearCarga pNuevo capMaybe
