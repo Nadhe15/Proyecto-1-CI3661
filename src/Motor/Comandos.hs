@@ -23,7 +23,7 @@ leerDireccion s = case map toLower (recortar s) of
   "oeste"  -> Just Oeste
   "o"      -> Just Oeste
   "arriba" -> Just Arriba
-  "abajo"  -> Just Arriba
+  "abajo"  -> Just Abajo
   _        -> Nothing
 
 -- | Normaliza el nombre de un objeto escrito por el jugador.
@@ -54,9 +54,10 @@ leerComando entrada =
            "mirar"      -> sinArgs Mirar resto
            "tomar"      -> Tomar <$> leerObjeto resto
            "coger"      -> Tomar <$> leerObjeto resto
-           "soltar"     -> Tomar <$> leerObjeto resto
+           "soltar"     -> Soltar <$> leerObjeto resto
            "examinar"   -> Examinar <$> leerObjeto resto
            "inventario" -> sinArgs Inventario resto
+           "inv"        -> sinArgs Inventario resto
            "guardar"    -> conArchivo Guardar resto
            "cargar"     -> conArchivo Cargar resto
            "ayuda"      -> sinArgs Ayuda resto
