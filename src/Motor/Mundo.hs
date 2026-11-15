@@ -91,25 +91,39 @@ lineaInicioBloque :: BloqueLineas -> Int
 lineaInicioBloque []          = 1
 lineaInicioBloque ((n, _):_)  = n
 
+-- Distingue entre campo ausente, presente pero invalido y presente valido
+-- para no reportar "falta campo" cuando el campo si estaba pero mal formado
+data EstadoCampo a
+  = Ausente
+  | PresenteInvalido
+  | Presente a
+
+esAusente :: EstadoCampo a -> Bool
+esAusente Ausente = True
+esAusente _       = False
+
 -- Parsea el primer bloque del archivo (cabecera del mundo)
 parsearCabecera :: BloqueLineas -> Either [ErrorMundo] CabeceraCruda
 parsearCabecera lns =
   let numInicio = lineaInicioBloque lns
-      (errs, mTitulo, mInicio, mMeta, mCap) =
-        foldl paso ([], Nothing, Nothing, Nothing, Nothing) lns
+      (errs, eTitulo, eInicio, eMeta, eCap) =
+        foldl paso ([], Ausente, Ausente, Ausente, Ausente) lns
       faltantes =
         [ ErrorSintaxis numInicio "falta el campo obligatorio MUNDO en la cabecera"
-        | Nothing <- [mTitulo]
+        | esAusente eTitulo
         ] ++
         [ ErrorSintaxis numInicio "falta el campo obligatorio INICIO en la cabecera"
-        | Nothing <- [mInicio]
+        | esAusente eInicio
         ] ++
         [ ErrorSintaxis numInicio "falta el campo obligatorio META en la cabecera"
-        | Nothing <- [mMeta]
+        | esAusente eMeta
         ]
       todosErrs = errs ++ faltantes
-  in case (todosErrs, mTitulo, mInicio, mMeta) of
-       ([], Just t, Just ini, Just meta) ->
+      mCap = case eCap of
+               Presente c -> Just c
+               _          -> Nothing
+  in case (todosErrs, eTitulo, eInicio, eMeta) of
+       ([], Presente t, Presente ini, Presente meta) ->
          Right (CabeceraCruda t ini meta mCap)
        _ ->
          Left todosErrs
@@ -120,32 +134,32 @@ parsearCabecera lns =
         Right (clave, val) -> case clave of
           "MUNDO" ->
             case mt of
-              Just _ -> (es ++ [ErrorSintaxis num "clave MUNDO repetida en la cabecera"], mt, mi, mm, mc)
-              Nothing ->
+              Ausente ->
                 if null val
-                  then (es ++ [ErrorSintaxis num "el titulo MUNDO no puede estar vacio"], mt, mi, mm, mc)
-                  else (es, Just val, mi, mm, mc)
+                  then (es ++ [ErrorSintaxis num "el titulo MUNDO no puede estar vacio"], PresenteInvalido, mi, mm, mc)
+                  else (es, Presente val, mi, mm, mc)
+              _ -> (es ++ [ErrorSintaxis num "clave MUNDO repetida en la cabecera"], mt, mi, mm, mc)
           "INICIO" ->
             case mi of
-              Just _ -> (es ++ [ErrorSintaxis num "clave INICIO repetida en la cabecera"], mt, mi, mm, mc)
-              Nothing ->
+              Ausente ->
                 case parsearTodo identificador val of
-                  Just sid -> (es, mt, Just (IdSala sid), mm, mc)
-                  Nothing  -> (es ++ [ErrorSintaxis num ("identificador invalido en INICIO: '" ++ val ++ "'")], mt, mi, mm, mc)
+                  Just sid -> (es, mt, Presente (IdSala sid), mm, mc)
+                  Nothing  -> (es ++ [ErrorSintaxis num ("identificador invalido en INICIO: '" ++ val ++ "'")], mt, PresenteInvalido, mm, mc)
+              _ -> (es ++ [ErrorSintaxis num "clave INICIO repetida en la cabecera"], mt, mi, mm, mc)
           "META" ->
             case mm of
-              Just _ -> (es ++ [ErrorSintaxis num "clave META repetida en la cabecera"], mt, mi, mm, mc)
-              Nothing ->
+              Ausente ->
                 case parsearTodo parsearMeta val of
-                  Just meta -> (es, mt, mi, Just meta, mc)
-                  Nothing   -> (es ++ [ErrorSintaxis num ("formato invalido en META: '" ++ val ++ "'")], mt, mi, mm, mc)
+                  Just meta -> (es, mt, mi, Presente meta, mc)
+                  Nothing   -> (es ++ [ErrorSintaxis num ("formato invalido en META: '" ++ val ++ "'")], mt, mi, PresenteInvalido, mc)
+              _ -> (es ++ [ErrorSintaxis num "clave META repetida en la cabecera"], mt, mi, mm, mc)
           "CAPACIDAD" ->
             case mc of
-              Just _ -> (es ++ [ErrorSintaxis num "clave CAPACIDAD repetida en la cabecera"], mt, mi, mm, mc)
-              Nothing ->
+              Ausente ->
                 case parsearTodo enteroPositivo val of
-                  Just cap -> (es, mt, mi, mm, Just cap)
-                  Nothing  -> (es ++ [ErrorSintaxis num ("CAPACIDAD debe ser un entero positivo: '" ++ val ++ "'")], mt, mi, mm, mc)
+                  Just cap -> (es, mt, mi, mm, Presente cap)
+                  Nothing  -> (es ++ [ErrorSintaxis num ("CAPACIDAD debe ser un entero positivo: '" ++ val ++ "'")], mt, mi, mm, PresenteInvalido)
+              _ -> (es ++ [ErrorSintaxis num "clave CAPACIDAD repetida en la cabecera"], mt, mi, mm, mc)
           otra ->
             (es ++ [ErrorSintaxis num ("clave desconocida en cabecera: '" ++ otra ++ "'")], mt, mi, mm, mc)
 
@@ -177,18 +191,18 @@ parsearBloque (primera@(num, _):resto) =
 -- Parsea las lineas internas de un bloque OBJETO
 parsearBloqueObjeto :: Int -> IdObjeto -> [LineaConNumero] -> Either [ErrorMundo] Objeto
 parsearBloqueObjeto numInicio oid lns =
-  let (errs, mDesc, mPeso) = foldl paso ([], Nothing, Nothing) lns
+  let (errs, eDesc, ePeso) = foldl paso ([], Ausente, Ausente) lns
       faltante =
         [ ErrorSintaxis numInicio ("falta DESC en el objeto '" ++ unIdObjeto oid ++ "'")
-        | Nothing <- [mDesc]
+        | esAusente eDesc
         ]
       todosErrs = errs ++ faltante
-  in case (todosErrs, mDesc) of
-       ([], Just desc) ->
-         let peso = maybe 1 id mPeso
-         in Right (Objeto oid desc peso)
-       _ ->
-         Left todosErrs
+      peso = case ePeso of
+               Presente p -> p
+               _          -> 1
+  in case (todosErrs, eDesc) of
+       ([], Presente desc) -> Right (Objeto oid desc peso)
+       _                   -> Left todosErrs
   where
     paso (es, md, mp) ln@(num, _) =
       case parsearClaveValor ln of
@@ -196,18 +210,18 @@ parsearBloqueObjeto numInicio oid lns =
         Right (clave, val) -> case clave of
           "DESC" ->
             case md of
-              Just _ -> (es ++ [ErrorSintaxis num "clave DESC repetida en objeto"], md, mp)
-              Nothing ->
+              Ausente ->
                 if null val
-                  then (es ++ [ErrorSintaxis num "la descripcion DESC no puede estar vacia"], md, mp)
-                  else (es, Just val, mp)
+                  then (es ++ [ErrorSintaxis num "la descripcion DESC no puede estar vacia"], PresenteInvalido, mp)
+                  else (es, Presente val, mp)
+              _ -> (es ++ [ErrorSintaxis num "clave DESC repetida en objeto"], md, mp)
           "PESO" ->
             case mp of
-              Just _ -> (es ++ [ErrorSintaxis num "clave PESO repetida en objeto"], md, mp)
-              Nothing ->
+              Ausente ->
                 case parsearTodo enteroPositivo val of
-                  Just p  -> (es, md, Just p)
-                  Nothing -> (es ++ [ErrorSintaxis num ("PESO debe ser un entero positivo: '" ++ val ++ "'")], md, mp)
+                  Just p  -> (es, md, Presente p)
+                  Nothing -> (es ++ [ErrorSintaxis num ("PESO debe ser un entero positivo: '" ++ val ++ "'")], md, PresenteInvalido)
+              _ -> (es ++ [ErrorSintaxis num "clave PESO repetida en objeto"], md, mp)
           "OBJETO" ->
             (es ++ [ErrorSintaxis num "clave OBJETO repetida dentro del bloque"], md, mp)
           otra ->
@@ -216,14 +230,14 @@ parsearBloqueObjeto numInicio oid lns =
 -- Parsea las lineas internas de un bloque SALA
 parsearBloqueSala :: Int -> IdSala -> [LineaConNumero] -> Either [ErrorMundo] SalaCruda
 parsearBloqueSala numInicio sid lns =
-  let (errs, mDesc, salidasRev, objetosRev) = foldl paso ([], Nothing, [], []) lns
+  let (errs, eDesc, salidasRev, objetosRev) = foldl paso ([], Ausente, [], []) lns
       faltante =
         [ ErrorSintaxis numInicio ("falta DESC en la sala '" ++ unIdSala sid ++ "'")
-        | Nothing <- [mDesc]
+        | esAusente eDesc
         ]
       todosErrs = errs ++ faltante
-  in case (todosErrs, mDesc) of
-       ([], Just desc) ->
+  in case (todosErrs, eDesc) of
+       ([], Presente desc) ->
          Right (SalaCruda sid desc (reverse salidasRev) (reverse objetosRev))
        _ ->
          Left todosErrs
@@ -234,11 +248,11 @@ parsearBloqueSala numInicio sid lns =
         Right (clave, val) -> case clave of
           "DESC" ->
             case md of
-              Just _ -> (es ++ [ErrorSintaxis num "clave DESC repetida en sala"], md, ss, os)
-              Nothing ->
+              Ausente ->
                 if null val
-                  then (es ++ [ErrorSintaxis num "la descripcion DESC no puede estar vacia"], md, ss, os)
-                  else (es, Just val, ss, os)
+                  then (es ++ [ErrorSintaxis num "la descripcion DESC no puede estar vacia"], PresenteInvalido, ss, os)
+                  else (es, Presente val, ss, os)
+              _ -> (es ++ [ErrorSintaxis num "clave DESC repetida en sala"], md, ss, os)
           "SALIDA" ->
             case parsearTodo parsearSalida val of
               Just sal -> (es, md, sal : ss, os)

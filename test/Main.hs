@@ -167,7 +167,20 @@ main = do
       == Just (LlegarA (IdSala "plaza"))
       && parsearTodo identificador "SalaMayuscula" == Nothing
 
-  let resultados = [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10]
+  p11 <- ejecutarPrueba "leerMundo no duplica error de campo faltante cuando META tiene mal formato" $
+    let malMeta = unlines
+          [ "MUNDO: Meta mal escrita"
+          , "INICIO: sala_a"
+          , "META: llegar sala_a"
+          , "---"
+          , "SALA: sala_a"
+          , "DESC: Cuarto."
+          ]
+    in case leerMundo malMeta of
+         Left [_] -> True
+         _        -> False
+
+  let resultados = [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11]
       pasaron = length (filter id resultados)
       total = length resultados
   putStrLn ("Resumen: " ++ show pasaron ++ "/" ++ show total ++ " pruebas pasaron.")
