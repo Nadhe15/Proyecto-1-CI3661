@@ -1,0 +1,21 @@
+# Errores esperados (V1 - sintaxis):
+# 1. CAPACIDAD: 0 no es un entero positivo
+# 2. Clave desconocida COLOR en objeto
+# 3. Salida con identificador en mayusculas (Sala_Principal)
+# 4. Falta DESC en la sala 'deposito'
+# 5. Salida mal formada sin flecha '->'
+MUNDO: Mundo con fallos de sintaxis
+INICIO: entrada
+META: llegar a entrada
+CAPACIDAD: 0
+---
+OBJETO: llave
+DESC: Una llave vieja.
+COLOR: dorado
+---
+SALA: entrada
+DESC: La entrada principal.
+SALIDA: norte -> Sala_Principal
+---
+SALA: deposito
+SALIDA: sur entrada

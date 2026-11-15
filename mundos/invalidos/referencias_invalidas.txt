@@ -1,0 +1,28 @@
+# Errores esperados (V2, V3, V4, V5, V6, V8):
+# 1. V2: identificador de sala duplicado ('pasillo')
+# 2. V3: salida hacia sala inexistente ('azotea')
+# 3. V4: salida requiere objeto inexistente ('tarjeta')
+# 4. V5: salidas duplicadas en direccion 'norte' en 'entrada'
+# 5. V6: objeto no definido ('linterna') en 'pasillo'
+# 6. V8: sala de INICIO inexistente ('porton')
+# 7. V8: sala de META inexistente ('azotea')
+MUNDO: Mundo con referencias rotas
+INICIO: porton
+META: llegar a azotea
+---
+OBJETO: llave
+DESC: Una llave de metal.
+---
+SALA: entrada
+DESC: La entrada del edificio.
+SALIDA: norte -> pasillo
+SALIDA: norte -> azotea requiere tarjeta
+OBJETO: llave
+---
+SALA: pasillo
+DESC: Un pasillo largo.
+SALIDA: sur -> entrada
+OBJETO: linterna
+---
+SALA: pasillo
+DESC: Otra sala con el mismo identificador.

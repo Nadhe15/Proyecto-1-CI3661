@@ -1,0 +1,52 @@
+# Errores esperados (V7, V9, V10 y Variante 1 - Peso):
+# 1. V7: objeto 'llave' colocado en mas de una sala
+# 2. V9: sala 'bodega_oculta' no es alcanzable desde INICIO
+# 3. V10: objeto necesario 'codigo' no esta colocado en ninguna sala
+# 4. Peso: objeto 'yunque' (peso 8) supera la capacidad maxima (5)
+# 5. Peso: objeto de meta 'estatua' (peso 4) + requisito 'llave' (peso 3) superan la capacidad (5)
+MUNDO: Mundo imposible por peso y alcance
+INICIO: patio
+META: llevar estatua a santuario
+CAPACIDAD: 5
+---
+OBJETO: llave
+DESC: Llave pesada de hierro.
+PESO: 3
+---
+OBJETO: estatua
+DESC: Estatua de piedra.
+PESO: 4
+---
+OBJETO: yunque
+DESC: Demasiado pesado para cargarlo.
+PESO: 8
+---
+OBJETO: codigo
+DESC: Necesario para una puerta, pero olvidado en el mapa.
+PESO: 1
+---
+SALA: patio
+DESC: Un patio abierto.
+SALIDA: norte -> vestibulo
+SALIDA: este -> cuarto_llave requiere codigo
+OBJETO: llave
+---
+SALA: cuarto_llave
+DESC: Un cuarto cerrado.
+SALIDA: oeste -> patio
+OBJETO: yunque
+---
+SALA: vestibulo
+DESC: Antesala del santuario.
+SALIDA: sur -> patio
+SALIDA: norte -> santuario requiere llave
+OBJETO: estatua
+---
+SALA: santuario
+DESC: El destino final.
+SALIDA: sur -> vestibulo
+OBJETO: llave
+---
+SALA: bodega_oculta
+DESC: Nadie puede entrar aqui.
+SALIDA: sur -> patio
