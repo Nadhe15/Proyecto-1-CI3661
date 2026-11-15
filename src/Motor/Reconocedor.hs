@@ -120,9 +120,9 @@ parsearSalida = conReq <|> sinReq
       , ("->", r3)       <- cadena "->" r2
       , (_, r4)          <- espacios r3
       , (dest, r5)       <- identificador r4
-      , (_, r6)          <- espacios r5
+      , (_, r6)          <- alMenosUno (satisface isSpace) r5
       , ("requiere", r7') <- cadena "requiere" r6
-      , (_, r8)          <- espacios r7'
+      , (_, r8)          <- alMenosUno (satisface isSpace) r7'
       , (req, r7)        <- identificador r8
       ]
     sinReq s1 =
@@ -139,22 +139,23 @@ parsearSalida = conReq <|> sinReq
 parsearMeta :: ReadS Meta
 parsearMeta = metaLlegar <|> metaLlevar
   where
+    esp1 = alMenosUno (satisface isSpace)
     metaLlegar s1 =
       [ (LlegarA (IdSala sala), r4)
       | ("llegar", r1) <- cadena "llegar" s1
-      , (_, r2)        <- espacios r1
+      , (_, r2)        <- esp1 r1
       , ("a", r3)      <- cadena "a" r2
-      , (_, r4')       <- espacios r3
+      , (_, r4')       <- esp1 r3
       , (sala, r4)     <- identificador r4'
       ]
     metaLlevar s1 =
       [ (LlevarA (IdObjeto obj) (IdSala sala), r6)
       | ("llevar", r1) <- cadena "llevar" s1
-      , (_, r2)        <- espacios r1
+      , (_, r2)        <- esp1 r1
       , (obj, r3)      <- identificador r2
-      , (_, r4)        <- espacios r3
+      , (_, r4)        <- esp1 r3
       , ("a", r5)      <- cadena "a" r4
-      , (_, r6')       <- espacios r5
+      , (_, r6')       <- esp1 r5
       , (sala, r6)     <- identificador r6'
       ]
 

@@ -180,7 +180,33 @@ main = do
          Left [_] -> True
          _        -> False
 
-  let resultados = [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11]
+  p12 <- ejecutarPrueba "parsearMeta exige espacios entre palabras clave" $
+    parsearTodo parsearMeta "llegar asala" == Nothing
+      && parsearTodo parsearMeta "llegarasala" == Nothing
+      && parsearTodo parsearMeta "llevar libro abiblioteca" == Nothing
+
+  p13 <- ejecutarPrueba "leerMundo soporta mismo ID para sala y objeto, ':' en DESC y bloques mixtos" $
+    let mundoMixto = unlines
+          [ "   # Comentario con espacios delante"
+          , "MUNDO: Prueba: Casos borde"
+          , "INICIO: cocina"
+          , "META: llevar cocina a cocina"
+          , "  ---  "
+          , "SALA: cocina"
+          , "DESC: Hora: 12:00. Una cocina normal."
+          , "OBJETO: cocina"
+          , "---"
+          , "OBJETO: cocina"
+          , "DESC: Una cocina en miniatura de juguete."
+          ]
+    in case leerMundo mundoMixto of
+         Right m ->
+           mundoInicio m == IdSala "cocina"
+             && Map.member (IdSala "cocina") (mundoSalas m)
+             && Map.member (IdObjeto "cocina") (mundoObjetos m)
+         Left _ -> False
+
+  let resultados = [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13]
       pasaron = length (filter id resultados)
       total = length resultados
   putStrLn ("Resumen: " ++ show pasaron ++ "/" ++ show total ++ " pruebas pasaron.")

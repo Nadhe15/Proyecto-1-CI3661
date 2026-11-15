@@ -1,0 +1,8 @@
+# Declaración de Uso de IA
+
+**Herramientas utilizadas y propósito:**  
+Se utilizó un asistente de IA integrado en el editor (Antigravity) como apoyo para estructurar los combinadores sobre `ReadS` en `Motor.Reconocedor`, organizar las validaciones V1–V10 y de la variante Peso en `Motor.Mundo`, redactar casos de prueba en `test/Main.hs` y revisar la redacción de `DECISIONES.md`.
+
+**Ejemplos concretos de sugerencias corregidas:**  
+1. **Campos obligatorios duplicados (`Maybe` frente a `EstadoCampo`):** En la primera versión de `parsearCabecera`, `parsearBloqueObjeto` y `parsearBloqueSala` en `src/Motor/Mundo.hs`, la sugerencia inicial modelaba los campos obligatorios (`MUNDO`, `INICIO`, `META` y `DESC`) como `Maybe a`. Al probar con archivos inválidos (por ejemplo `META: llegar cuarto`), vimos que cuando una clave sí estaba presente pero con formato incorrecto, el acumulador quedaba en `Nothing` y al cerrar el bloque el motor emitía un segundo error falso indicando que el campo faltaba. Corregimos ese diseño sustituyendo `Maybe a` por `EstadoCampo a` (`Ausente | PresenteInvalido | Presente a`) para distinguir cuándo una clave realmente no existe y cuándo existe pero está mal escrita, y agregamos su prueba en `test/Main.hs` (commit `7cd880f`).
+2. **Espacios obligatorios en `parsearMeta` y `parsearSalida`:** En una revisión de casos borde detectamos que usar el combinador `espacios` (cero o más espacios) entre palabras clave como `llegar` y `a` permitía aceptar entradas mal formadas como `llegarasala` o `llegar asala`. Se corrigió exigiendo `alMenosUno (satisface isSpace)` entre palabras clave y se añadió la prueba correspondiente en `test/Main.hs`.
