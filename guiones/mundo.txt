@@ -1,0 +1,15 @@
+mirar
+norte
+tomar tarjeta_acceso
+oeste
+examinar llave_maestra
+tomar llave_maestra
+este
+norte
+norte
+tomar nucleo_cuantico
+soltar llave_maestra
+tomar nucleo_cuantico
+inventario
+sur
+este

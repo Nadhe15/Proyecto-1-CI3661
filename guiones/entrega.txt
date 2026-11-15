@@ -1,0 +1,14 @@
+tomar carnet
+ir norte
+ir oeste
+tomar memoria_usb
+ir este
+ir norte
+ir este
+tomar llave_del_ascensor
+ir oeste
+ir oeste
+tomar proyecto_impreso
+ir este
+ir arriba
+ir norte

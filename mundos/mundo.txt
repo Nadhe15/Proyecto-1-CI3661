@@ -1,0 +1,73 @@
+# Mundo propio con 8 salas, 6 objetos, 3 salidas bloqueadas y limite de capacidad
+
+MUNDO: La Bóveda del Laboratorio
+INICIO: vestibulo
+META: llevar nucleo_cuantico a laboratorio_central
+CAPACIDAD: 5
+---
+OBJETO: tarjeta_acceso
+DESC: Una tarjeta magnética del departamento de física.
+PESO: 1
+---
+OBJETO: llave_maestra
+DESC: Una llave pesada de bronce para la bóveda de seguridad.
+PESO: 2
+---
+OBJETO: nucleo_cuantico
+DESC: Un cilindro estabilizado que emite un tenue brillo azul.
+PESO: 4
+---
+OBJETO: manual_seguridad
+DESC: Un grueso manual de protocolos de emergencia del laboratorio.
+PESO: 2
+---
+OBJETO: lingote_plomo
+DESC: Un bloque de blindaje sumamente pesado. Ocupa toda tu capacidad.
+PESO: 5
+---
+OBJETO: detector_radiacion
+DESC: Un pequeño dosímetro portátil que parpadea suavemente.
+---
+SALA: vestibulo
+DESC: El vestíbulo principal del complejo de investigación. Las luces de emergencia parpadean.
+SALIDA: norte -> recepcion
+SALIDA: este -> almacen
+---
+SALA: almacen
+DESC: Un almacén polvoriento con cajas metálicas apiladas.
+SALIDA: oeste -> vestibulo
+OBJETO: lingote_plomo
+---
+SALA: recepcion
+DESC: La recepción del laboratorio. Hay un mostrador vacío y lectores magnéticos.
+SALIDA: sur -> vestibulo
+SALIDA: norte -> pasillo_norte
+SALIDA: este -> sala_servidores
+SALIDA: oeste -> archivo requiere tarjeta_acceso
+OBJETO: tarjeta_acceso
+---
+SALA: sala_servidores
+DESC: Una sala refrigerada llena de gabinetes zumbando.
+SALIDA: oeste -> recepcion
+OBJETO: manual_seguridad
+---
+SALA: archivo
+DESC: El archivo de seguridad. Estanterías metálicas guardan llaves y registros.
+SALIDA: este -> recepcion
+OBJETO: llave_maestra
+OBJETO: detector_radiacion
+---
+SALA: pasillo_norte
+DESC: Un pasillo blindado con dos puertas de alta seguridad al norte y al este.
+SALIDA: sur -> recepcion
+SALIDA: norte -> boveda requiere llave_maestra
+SALIDA: este -> laboratorio_central requiere tarjeta_acceso
+---
+SALA: boveda
+DESC: La bóveda de contención. En el centro reposa el núcleo en su pedestal.
+SALIDA: sur -> pasillo_norte
+OBJETO: nucleo_cuantico
+---
+SALA: laboratorio_central
+DESC: El laboratorio central. La cámara de estabilización espera el núcleo cuántico.
+SALIDA: oeste -> pasillo_norte
