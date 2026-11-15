@@ -9,7 +9,10 @@ module Motor.Mundo
 
 import Data.Char (isSpace)
 import Data.List (dropWhileEnd)
+import Data.Maybe (isJust)
 import qualified Data.Map.Strict as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Motor.Reconocedor
   ( enteroPositivo
   , identificador
@@ -267,7 +270,166 @@ parsearMundoCrudo (cab:resto) =
        _ ->
          Left todosErrs
 
--- Convierte un MundoCrudo en el Mundo final (las validaciones V2-V10 se anadiran en el siguiente paso)
+-- Devuelve los elementos repetidos de una lista conservando el orden de aparicion
+duplicados :: Ord a => [a] -> [a]
+duplicados = reverse . (\(ds, _, _) -> ds) . foldl paso ([], Set.empty, Set.empty)
+  where
+    paso (dups, vistos, reportados) x
+      | Set.member x vistos =
+          if Set.member x reportados
+            then (dups, vistos, reportados)
+            else (x : dups, vistos, Set.insert x reportados)
+      | otherwise = (dups, Set.insert x vistos, reportados)
+
+-- Recorre el grafo de salas desde una sala inicial ignorando requisitos
+salasAlcanzables :: IdSala -> Map.Map IdSala [IdSala] -> Set IdSala
+salasAlcanzables inicio ady = bfs [inicio] (Set.singleton inicio)
+  where
+    bfs [] visitados = visitados
+    bfs (u:cola) visitados =
+      let vecinos = Map.findWithDefault [] u ady
+          nuevos  = filter (`Set.notMember` visitados) vecinos
+          visitados' = foldl (flip Set.insert) visitados nuevos
+      in bfs (cola ++ nuevos) visitados'
+
+-- Ejecuta todas las validaciones semanticas V2-V10 y las de Variante 1 (Peso)
+validarMundo :: MundoCrudo -> [ErrorMundo]
+validarMundo (MundoCrudo cab objs sals) =
+  errV2 ++ errV3 ++ errV4 ++ errV5 ++ errV6 ++ errV7 ++ errV8 ++ errV9 ++ errV10 ++ errPeso
+  where
+    idsSalas = map scId sals
+    setSalas = Set.fromList idsSalas
+    idsObjs  = map objId objs
+    setObjs  = Set.fromList idsObjs
+    mapaObjs = Map.fromList [ (objId o, o) | o <- objs ]
+
+    -- V2: identificadores de salas u objetos duplicados
+    errV2 =
+      [ ErrorValidacion ("identificador de sala duplicado: '" ++ unIdSala sid ++ "'")
+      | sid <- duplicados idsSalas
+      ] ++
+      [ ErrorValidacion ("identificador de objeto duplicado: '" ++ unIdObjeto oid ++ "'")
+      | oid <- duplicados idsObjs
+      ]
+
+    -- V3: salidas hacia salas que no existen
+    errV3 =
+      [ ErrorValidacion ("la sala '" ++ unIdSala (scId s) ++ "' tiene una salida hacia una sala inexistente: '" ++ unIdSala dest ++ "'")
+      | s <- sals
+      , (_, dest, _) <- scSalidas s
+      , Set.notMember dest setSalas
+      ]
+
+    -- V4: salidas que requieren objetos que no existen
+    errV4 =
+      [ ErrorValidacion ("la sala '" ++ unIdSala (scId s) ++ "' tiene una salida que requiere un objeto inexistente: '" ++ unIdObjeto req ++ "'")
+      | s <- sals
+      , (_, _, Just req) <- scSalidas s
+      , Set.notMember req setObjs
+      ]
+
+    -- V5: salas con dos o mas salidas en la misma direccion
+    errV5 =
+      [ ErrorValidacion ("la sala '" ++ unIdSala (scId s) ++ "' tiene salidas duplicadas en direccion '" ++ mostrarDireccion dir ++ "'")
+      | s <- sals
+      , dir <- duplicados [ d | (d, _, _) <- scSalidas s ]
+      ]
+
+    -- V6: salas que contienen objetos no definidos
+    errV6 =
+      [ ErrorValidacion ("la sala '" ++ unIdSala (scId s) ++ "' contiene un objeto no definido: '" ++ unIdObjeto oid ++ "'")
+      | s <- sals
+      , oid <- scObjetos s
+      , Set.notMember oid setObjs
+      ]
+
+    -- V7: objetos colocados en mas de una sala o repetidos en la misma
+    colocaciones = [ (oid, scId s) | s <- sals, oid <- scObjetos s ]
+    conteoPorObj = Map.fromListWith (+) [ (oid, 1 :: Int) | (oid, _) <- colocaciones ]
+    errV7 =
+      [ ErrorValidacion ("el objeto '" ++ unIdObjeto oid ++ "' esta colocado mas de una vez en el mundo")
+      | (oid, n) <- Map.toList conteoPorObj
+      , n > 1
+      ]
+
+    -- V8: INICIO o META con salas u objetos inexistentes
+    errV8 =
+      [ ErrorValidacion ("la sala de INICIO no existe: '" ++ unIdSala (ccInicio cab) ++ "'")
+      | Set.notMember (ccInicio cab) setSalas
+      ] ++
+      case ccMeta cab of
+        LlegarA sid ->
+          [ ErrorValidacion ("la sala de la META no existe: '" ++ unIdSala sid ++ "'")
+          | Set.notMember sid setSalas
+          ]
+        LlevarA oid sid ->
+          [ ErrorValidacion ("el objeto de la META no existe: '" ++ unIdObjeto oid ++ "'")
+          | Set.notMember oid setObjs
+          ] ++
+          [ ErrorValidacion ("la sala de la META no existe: '" ++ unIdSala sid ++ "'")
+          | Set.notMember sid setSalas
+          ]
+
+    -- V9: salas no alcanzables desde INICIO (ignorando requisitos)
+    adyacencias = Map.fromListWith (++)
+      [ (scId s, [ dest | (_, dest, _) <- scSalidas s, Set.member dest setSalas ])
+      | s <- sals
+      ]
+    alcanzables = salasAlcanzables (ccInicio cab) adyacencias
+    errV9 =
+      if Set.notMember (ccInicio cab) setSalas
+        then []
+        else [ ErrorValidacion ("la sala '" ++ unIdSala sid ++ "' no es alcanzable desde INICIO")
+             | sid <- Set.toList setSalas
+             , Set.notMember sid alcanzables
+             ]
+
+    -- V10: objetos definidos necesarios (meta o requisito) que no estan colocados en ninguna sala
+    colocados = Set.fromList (map fst colocaciones)
+    reqsSalida = [ req | s <- sals, (_, _, Just req) <- scSalidas s ]
+    objsMeta = case ccMeta cab of
+                 LlegarA _     -> []
+                 LlevarA oid _ -> [oid]
+    necesarios = Set.toList (Set.fromList (objsMeta ++ reqsSalida))
+    errV10 =
+      [ ErrorValidacion ("el objeto necesario '" ++ unIdObjeto oid ++ "' no esta colocado en ninguna sala")
+      | oid <- necesarios
+      , Set.member oid setObjs
+      , Set.notMember oid colocados
+      ]
+
+    -- Validaciones adicionales de Variante 1 (Peso)
+    errPeso = case ccCapacidad cab of
+      Nothing  -> []
+      Just cap -> errPesoIndividual cap ++ errPesoMetaReqs cap
+
+    errPesoIndividual cap =
+      [ ErrorValidacion ("el objeto '" ++ unIdObjeto (objId o) ++ "' pesa " ++ show (objPeso o)
+                         ++ " y supera la capacidad maxima (" ++ show cap ++ ")")
+      | o <- objs
+      , objPeso o > cap
+      ]
+
+    errPesoMetaReqs cap = case ccMeta cab of
+      LlegarA _ -> []
+      LlevarA oidMeta sidMeta ->
+        let yaEnMeta = any (\s -> scId s == sidMeta && oidMeta `elem` scObjetos s) sals
+            entradas = [ mReq | s <- sals, (_, dest, mReq) <- scSalidas s, dest == sidMeta ]
+            pesoM    = maybe 1 objPeso (Map.lookup oidMeta mapaObjs)
+            reqsValid = [ req | Just req <- entradas, req /= oidMeta, Set.member req setObjs ]
+            cabeConAlguno = any (\r -> pesoM + maybe 1 objPeso (Map.lookup r mapaObjs) <= cap) reqsValid
+        in [ ErrorValidacion ("el objeto de la meta '" ++ unIdObjeto oidMeta
+                              ++ "' no puede llevarse junto con ningun requisito de entrada a '"
+                              ++ unIdSala sidMeta ++ "' sin superar la capacidad (" ++ show cap ++ ")")
+           | not yaEnMeta
+           , Set.member oidMeta setObjs
+           , not (null entradas)
+           , all isJust entradas
+           , not (null reqsValid)
+           , not cabeConAlguno
+           ]
+
+-- Convierte un MundoCrudo ya validado en el Mundo final
 construirMundo :: MundoCrudo -> Mundo
 construirMundo (MundoCrudo cab objs sals) =
   Mundo
@@ -294,4 +456,7 @@ leerMundo contenido =
       bloques = separarBloques utiles
   in case parsearMundoCrudo bloques of
        Left errs   -> Left errs
-       Right crudo -> Right (construirMundo crudo)
+       Right crudo ->
+         case validarMundo crudo of
+           []   -> Right (construirMundo crudo)
+           errs -> Left errs
