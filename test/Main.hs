@@ -2,10 +2,17 @@
 
 module Main (main) where
 
+import Control.Exception (bracket)
+import Data.List (isInfixOf)
 import qualified Data.Map.Strict as Map
+import System.Directory (doesFileExist, getTemporaryDirectory, removeFile)
 import System.Exit (exitFailure, exitSuccess)
+import System.FilePath ((</>))
 import System.IO (IOMode (ReadMode), hGetContents, hSetEncoding, stdout, utf8, withFile)
+import Motor.Comandos (leerComando)
 import Motor.Mundo (leerMundo)
+import Motor.Nucleo (ejecutar, estadoInicial)
+import Motor.Persistencia (cargarPartida, guardarPartida)
 import Motor.Reconocedor (identificador, parsearMeta, parsearSalida, parsearTodo)
 import Motor.Tipos
 
@@ -40,6 +47,15 @@ probarMundoInvalido nombre ruta esperados = do
           then putStrLn ("[OK]    " ++ nombre ++ " (" ++ show n ++ " errores)")
           else putStrLn ("[FALLO] " ++ nombre ++ ": esperaba " ++ show esperados ++ " errores y dio " ++ show n)
         pure ok
+
+-- Ejecuto una lista de comandos en orden usando leerComando y ejecutar
+correrGuion :: [String] -> Estado -> Maybe ([String], Estado)
+correrGuion [] st = Just ([], st)
+correrGuion (l : ls) st = do
+  cmd <- leerComando l
+  let (msgs, st') = ejecutar cmd st
+  (restoMsgs, stFinal) <- correrGuion ls st'
+  pure (msgs ++ restoMsgs, stFinal)
 
 mundoValidoEjemplo :: String
 mundoValidoEjemplo = unlines
@@ -206,7 +222,135 @@ main = do
              && Map.member (IdObjeto "cocina") (mundoObjetos m)
          Left _ -> False
 
-  let resultados = [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13]
+  -- Pruebas de mundos de entrega, mundo propio e invalidos del material
+  txtEntrega <- leerArchivo "mundos/entrega.txt"
+  txtMundoPropio <- leerArchivo "mundos/mundo.txt"
+
+  p14 <- ejecutarPrueba "leerMundo valida mundos/entrega.txt y mundos/mundo.txt" $
+    case (leerMundo txtEntrega, leerMundo txtMundoPropio) of
+      (Right mEnt, Right mProp) ->
+        mundoCapacidad mEnt == Nothing
+          && mundoCapacidad mProp == Just 5
+          && Map.size (mundoSalas mProp) == 8
+          && Map.size (mundoObjetos mProp) == 6
+      _ -> False
+
+  p15 <- probarMundoInvalido "mundos/invalido_semantica.txt" "mundos/invalido_semantica.txt" 9
+  p16 <- probarMundoInvalido "mundos/invalido_sintaxis.txt" "mundos/invalido_sintaxis.txt" 4
+
+  -- Pruebas de leerComando y ejecutar sobre el nucleo puro
+  p17 <- ejecutarPrueba "leerComando reconoce direcciones, sinonimos y articulos" $
+    leerComando "ir norte" == Just (Ir Norte)
+      && leerComando "sur" == Just (Ir Sur)
+      && leerComando "n" == Just (Ir Norte)
+      && leerComando "coger la memoria usb" == Just (Tomar (IdObjeto "memoria_usb"))
+      && leerComando "soltar llave_maestra" == Just (Soltar (IdObjeto "llave_maestra"))
+      && leerComando "inv" == Just Inventario
+      && leerComando "mirar" == Just Mirar
+      && leerComando "ayuda" == Just Ayuda
+      && leerComando "salir" == Just Salir
+
+  p18 <- ejecutarPrueba "leerComando rechaza comandos invalidos o incompletos" $
+    all (== Nothing)
+      [ leerComando ""
+      , leerComando "   "
+      , leerComando "volar"
+      , leerComando "ir"
+      , leerComando "ir noreste"
+      , leerComando "mirar sala"
+      , leerComando "tomar"
+      , leerComando "tomar la"
+      , leerComando "guardar"
+      , leerComando "cargar"
+      ]
+
+  p19 <- ejecutarPrueba "ejecutar impide cruzar salida bloqueada sin el objeto requerido" $
+    case leerMundo txtMundoPropio of
+      Left _ -> False
+      Right m ->
+        case correrGuion ["norte", "oeste"] (estadoInicial m) of
+          Just (msgs, stF) ->
+            estSalaActual stF == IdSala "recepcion"
+              && any ("bloqueada" `isInfixOf`) msgs
+          Nothing -> False
+
+  p20 <- ejecutarPrueba "ejecutar rechaza tomar objeto que supera CAPACIDAD y permite tras soltar" $
+    case leerMundo txtMundoPropio of
+      Left _ -> False
+      Right m ->
+        let pasos =
+              [ "norte", "tomar tarjeta_acceso", "oeste", "tomar llave_maestra"
+              , "este", "norte", "norte", "tomar nucleo_cuantico"
+              , "soltar llave_maestra", "tomar nucleo_cuantico"
+              ]
+        in case correrGuion pasos (estadoInicial m) of
+             Just (msgs, stF) ->
+               estInventario stF == [IdObjeto "tarjeta_acceso", IdObjeto "nucleo_cuantico"]
+                 && any ("Excederías tu capacidad" `isInfixOf`) msgs
+                 && any ("5/5" `isInfixOf`) msgs
+             Nothing -> False
+
+  p21 <- ejecutarPrueba "ejecutar gana mundos/mundo.txt con guiones/mundo.txt" $
+    case leerMundo txtMundoPropio of
+      Left _ -> False
+      Right m -> do
+        let guion =
+              [ "mirar", "norte", "tomar tarjeta_acceso", "oeste"
+              , "examinar llave_maestra", "tomar llave_maestra"
+              , "este", "norte", "norte", "tomar nucleo_cuantico"
+              , "soltar llave_maestra", "tomar nucleo_cuantico"
+              , "inventario", "sur", "este"
+              ]
+        case correrGuion guion (estadoInicial m) of
+          Just (msgs, stF) ->
+            estTerminado stF && "*** ¡Has ganado! ***" `elem` msgs
+          Nothing -> False
+
+  p22 <- ejecutarPrueba "ejecutar gana mundos/entrega.txt sin CAPACIDAD definida" $
+    case leerMundo txtEntrega of
+      Left _ -> False
+      Right m ->
+        let guion =
+              [ "tomar carnet", "norte", "oeste", "tomar memoria_usb"
+              , "este", "norte", "este", "tomar llave_del_ascensor"
+              , "oeste", "oeste", "tomar proyecto_impreso"
+              , "este", "arriba", "norte"
+              ]
+        in case correrGuion guion (estadoInicial m) of
+             Just (msgs, stF) ->
+               estTerminado stF && "*** ¡Has ganado! ***" `elem` msgs
+             Nothing -> False
+
+  -- Prueba de persistencia de partidas
+  tmpDir <- getTemporaryDirectory
+  let rutaSav = tmpDir </> "proyecto1_test_partida.sav"
+      limpiar = do
+        ex <- doesFileExist rutaSav
+        if ex then removeFile rutaSav else pure ()
+
+  okPersistencia <- bracket (pure ()) (\_ -> limpiar) $ \_ ->
+    case (leerMundo txtMundoPropio, leerMundo txtEntrega) of
+      (Right mProp, Right mEnt) ->
+        case correrGuion ["norte", "tomar tarjeta_acceso"] (estadoInicial mProp) of
+          Nothing -> pure False
+          Just (_, stAntes) -> do
+            g <- guardarPartida rutaSav stAntes
+            cOk <- cargarPartida rutaSav mProp
+            cOtro <- cargarPartida rutaSav mEnt
+            cNoExiste <- cargarPartida (tmpDir </> "no_existe_xyz.sav") mProp
+            pure $ case (g, cOk, cOtro, cNoExiste) of
+              (Right (), Right stDesp, Left _, Left _) ->
+                estSalaActual stDesp == estSalaActual stAntes
+                  && estInventario stDesp == estInventario stAntes
+              _ -> False
+      _ -> pure False
+
+  p23 <- ejecutarPrueba "guardarPartida y cargarPartida validan mundo y errores sin caer" okPersistencia
+
+  let resultados =
+        [ p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13
+        , p14, p15, p16, p17, p18, p19, p20, p21, p22, p23
+        ]
       pasaron = length (filter id resultados)
       total = length resultados
   putStrLn ("Resumen: " ++ show pasaron ++ "/" ++ show total ++ " pruebas pasaron.")
